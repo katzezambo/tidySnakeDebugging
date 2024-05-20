@@ -62,7 +62,7 @@ wildcard_constraints:
 
 rule tidy_dicoms:
     input:
-        lambda wildards: MAPPING[(wildards.subject, wildards.session)]
+        lambda wildcards: MAPPING[(wildcards.subject, wildcards.session)]
     output:
         temp(directory("{resultsdir}/tidy/sub_{subject}/ses_{session}"))
     run:
