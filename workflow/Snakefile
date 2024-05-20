@@ -1,12 +1,50 @@
+configfile: 'config/config.yaml'
 
+from pathlib import Path
+from itertools import chain
 
-rule tidy_snake_all:
+include: "utils.py"  # useful for workflows importing this one
+
+def list_scans(root_folder, prefix):
+    mapping = {}
+
+    for path in Path(root_folder).glob(f"{prefix}*"):
+        if not path.is_dir() and not path.suffix == ".zip":
+            print(f"Ignoring {path} (not a folder or a .zip file).")
+            continue
+
+        infos = [s.lower() for s in path.stem.replace(prefix, "").split("_")]
+        if len(infos) == 2:
+            infos += ["a"]
+
+        if len(infos) != 3:
+            print(f"Ignoring {path} (wrong filename format).")
+            continue
+
+        cohort, subject, session = infos
+
+        if path.is_dir():
+            mapping[(cohort + subject, session)] = path
+        else:
+            mapping[(cohort + subject, session)] = path.with_suffix("")
+
+    return mapping
+
+MAPPING = list_scans(config["datadir"], config["ethics_prefix"])
+if not MAPPING:
+    print(f"No subject/session pairs found from input folder {config['datadir']}.")
+    SUBJECTS = []
+    SESSIONS = []
+else:
+    SUBJECTS, SESSIONS = zip(*MAPPING)
+
+rule all:
     localrule: True
     input:
         f"{config['resultsdir']}/.mriqc_completed",
         f"{config['resultsdir']}/bids/derivatives/mriqc/quality_control.tsv"
 
-rule tidy_snake_unzip:
+rule unzip:
     input:
         f"{config['datadir']}/{{folder}}.zip"
     output:
@@ -22,7 +60,7 @@ wildcard_constraints:
     # "ses-a_task-rest_run-001", session is "a" and entity is "task-rest_run-001"
     session="[^-]"
 
-rule tidy_snake_tidy_dicoms:
+rule tidy_dicoms:
     input:
         lambda wildards: MAPPING[(wildards.subject, wildards.session)]
     output:
@@ -41,14 +79,12 @@ checkpoint heudiconv:
         directory("{resultsdir}/bids/sub-{subject}/ses-{session}"),
         directory("{resultsdir}/bids/.heudiconv/{subject}/ses-{session}")
     container:
-        "docker://ghcr.io/mataimri/heudiconv:container_ci"
+        "docker://ghcr.io/mataimri/heudiconv:jpeg2000_ci"
     threads: config["heudiconv"]["threads"]
     resources:
         cpus=lambda wildcards, threads: threads,
         mem_mb=config["heudiconv"]["mem_mb"],
         runtime=config["heudiconv"]["time_min"]
-    params:
-        grouping=config["heudiconv"].get("grouping", "studyUID")
     shell:
         "heudiconv "
         "--dicom_dir_template '{wildcards.resultsdir}/tidy/sub_{{subject}}/ses_{{session}}/*/*' "
@@ -56,12 +92,11 @@ checkpoint heudiconv:
         "--heuristic {config[heudiconv][heuristic]} "
         "--subjects {wildcards.subject} "
         "--ses {wildcards.session} "
-        "--grouping {params.grouping} "
         "--converter dcm2niix "
         "--bids notop "
         "--overwrite"
 
-rule tidy_snake_bids_template:
+rule bids_template:
     input:
         expand(
             "{{resultsdir}}/bids/sub-{subject}/ses-{session}",
