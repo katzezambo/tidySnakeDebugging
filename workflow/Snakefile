@@ -115,20 +115,40 @@ rule bids_template:
         "--command populate-templates"
 
 def get_task(wildcards):
-    entities = dict(entity.split("-") for entity in wildcards.entity.split("_"))
-    if "task" in entities:
-        flag = f"--task-id {entities['task']}"
-    else:
+    try:
+        possible_task_id = wildcards.entity.split('-')[-1]
+        if "task" in wildcards.entity:
+            flag = f"--task-id {possible_task_id}"
+        else:
+            flag = ""
+    except IndexError:
         flag = ""
     return flag
 
+    # entities = dict(entity.split("-") for entity in wildcards.entity.split("_"))
+    # if "task" in entities:
+    #     flag = f"--task-id {entities['task']}"
+    # else:
+    #     flag = ""
+    # return flag
+
 def get_run(wildcards):
-    entities = dict(entity.split("-") for entity in wildcards.entity.split("_"))
-    if "run" in entities:
-        flag = f"--run-id {entities['run']}"
-    else:
+    try:
+        possible_run_id = wildcards.entity.split('-')[-1]
+        if "run" in wildcards.entity:
+            flag = f"--run-id {possible_run_id}"
+        else:
+            flag = ""
+    except IndexError:
         flag = ""
     return flag
+
+    # entities = dict(entity.split("-") for entity in wildcards.entity.split("_"))
+    # if "run" in entities:
+    #     flag = f"--run-id {entities['run']}"
+    # else:
+    #     flag = ""
+    # return flag
 
 # TODO avoid shared file "dataset_description.json" (use shadow rule?)
 # TODO increase verbosity to produce log files?
