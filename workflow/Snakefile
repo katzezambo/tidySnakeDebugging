@@ -116,8 +116,9 @@ rule bids_template:
 
 def get_task(wildcards):
     try:
-        possible_task_id = wildcards.entity.split('-')[-1]
-        if "task" in wildcards.entity:
+        task_section = main_entity.split('_')[0]
+        possible_task_id = task_section.split('-')[1]
+        if "task" in main_entity:
             flag = f"--task-id {possible_task_id}"
         else:
             flag = ""
